@@ -1,59 +1,139 @@
-# PORT A サンプル
+# PortA - M5Stack Fire専用実装ガイド
 
-M5Stack FireのPORT Aを使用したサンプルコード集です。
+このプロジェクトは、M5Stack FireのPortAを使用したnanoFrameworkサンプルです。
 
-## PORT A 仕様
+## M5Stack Fireについて
 
-PORT Aは、M5Stack Fireの拡張ポートで、I2C通信とGPIOに対応しています。
+M5Stack Fireは、ESP32ベースの開発ボードで、複数の拡張ポートを備えています。PortAは、I2C通信およびGPIO用のポートとして使用できます。
 
-### ピン配置
-- GPIO21 (SDA)
-- GPIO22 (SCL)
-- 5V
-- GND
+## PortAのピン配置
 
-## サンプル一覧
+M5Stack FireのPortAは、本体側面の赤いポートで、以下のピン配置となっています：
 
-### 01_BME280_Sensor
-BME280環境センサー（温度・湿度・気圧）を読み取るサンプル
+| ピン番号 | 機能 | GPIO |
+|---------|------|------|
+| 1 | GND | GND |
+| 2 | SDA | GPIO21 |
+| 3 | SCL | GPIO22 |
+| 4 | 5V | 5V |
 
-### 02_MPU6050_IMU
-MPU6050 IMUセンサー（加速度・ジャイロ）を読み取るサンプル
+## 実装方法
 
-### 03_OLED_Display
-OLEDディスプレイに文字を表示するサンプル
+### GPIO使用例
 
-### 04_CustomI2C
-カスタムI2C通信の基本的な使い方のサンプル
+```csharp
+using System;
+using System.Device.Gpio;
+using System.Threading;
 
-### 05_GPIO_Output
-GPIO出力でLEDを制御するサンプル
+namespace M5StackFire.PortA
+{
+    public class Program
+    {
+        // PortAのピン定義
+        private const int SDA_PIN = 21;  // GPIO21
+        private const int SCL_PIN = 22;  // GPIO22
 
-### 06_GPIO_Input
-GPIO入力でボタンの状態を読み取るサンプル
+        public static void Main()
+        {
+            Console.WriteLine("M5Stack Fire - PortA GPIO Sample");
+            
+            var controller = new GpioController();
+            
+            // GPIO21をOutput設定
+            controller.OpenPin(SDA_PIN, PinMode.Output);
+            
+            try
+            {
+                while (true)
+                {
+                    // LED点滅など
+                    controller.Write(SDA_PIN, PinValue.High);
+                    Console.WriteLine("GPIO21: HIGH");
+                    Thread.Sleep(1000);
+                    
+                    controller.Write(SDA_PIN, PinValue.Low);
+                    Console.WriteLine("GPIO21: LOW");
+                    Thread.Sleep(1000);
+                }
+            }
+            finally
+            {
+                controller.ClosePin(SDA_PIN);
+            }
+        }
+    }
+}
+```
 
-### 07_I2C_Scanner
-I2Cバス上のデバイスをスキャンするサンプル
+### I2C使用例
 
-### 08_BME280_Display
-BME280センサーのデータをOLEDディスプレイに表示するサンプル
+PortAは標準的にI2C通信用として設計されています。
 
-## 必要なNuGetパッケージ
+```csharp
+using System;
+using System.Device.I2c;
+using nanoFramework.Hardware.Esp32;
 
-- nanoFramework.Hardware.Esp32
-- nanoFramework.System.Device.Gpio
-- nanoFramework.System.Device.I2c
-- Iot.Device.Bmxx80 (BME280使用時)
-- Iot.Device.Mpu6050 (MPU6050使用時)
-
-## 使用方法
-
-1. Visual Studioでプロジェクトを開く
-2. 必要なNuGetパッケージをインストール
-3. サンプルコードをコピー
-4. M5Stack Fireにデプロイ
+namespace M5StackFire.PortA
+{
+    public class Program
+    {
+        private const int I2C_BUS_ID = 1;
+        
+        public static void Main()
+        {
+            Console.WriteLine("M5Stack Fire - PortA I2C Sample");
+            
+            // I2Cピンの設定（PortA用）
+            Configuration.SetPinFunction(21, DeviceFunction.I2C1_DATA);   // SDA
+            Configuration.SetPinFunction(22, DeviceFunction.I2C1_CLOCK);  // SCL
+            
+            // I2Cデバイスの設定例（アドレスは接続するデバイスに応じて変更）
+            var i2cSettings = new I2cConnectionSettings(I2C_BUS_ID, 0x3C)
+            {
+                BusSpeed = I2cBusSpeed.StandardMode
+            };
+            
+            using (var device = I2cDevice.Create(i2cSettings))
+            {
+                // I2C通信処理
+                byte[] readBuffer = new byte[1];
+                device.Read(readBuffer);
+                Console.WriteLine($"Read data: 0x{readBuffer[0]:X2}");
+            }
+        }
+    }
+}
+```
 
 ## 注意事項
 
-- I2Cデバイスを接続する前に、正しい電圧（3.3V/5V）を確認してください
-- 複数のI2Cデバイスを接続する場合、アドレスの競合に注意してください
+1. **電圧レベル**: M5Stack FireのGPIOは3.3Vロジックです。5Vピンは電源供給用ですが、GPIO入出力は3.3Vで動作します。
+
+2. **プルアップ抵抗**: I2C通信を使用する場合、PortAには既に基板上にプルアップ抵抗が実装されている場合があります。外部でプルアップ抵抗を追加する前に確認してください。
+
+3. **ピンの共有**: GPIO21とGPIO22は、内部I2Cバス（IMU、PMICなど）でも使用される可能性があるため、他の内部デバイスとの競合に注意してください。
+
+4. **電流制限**: GPIOピンからの出力電流は最大40mA程度です。大きな電流を必要とするデバイスは外部電源を使用してください。
+
+## 必要なNuGetパッケージ
+
+```xml
+<ItemGroup>
+    <PackageReference Include="nanoFramework.CoreLibrary" Version="1.*" />
+    <PackageReference Include="nanoFramework.Hardware.Esp32" Version="1.*" />
+    <PackageReference Include="System.Device.Gpio" Version="1.*" />
+    <PackageReference Include="System.Device.I2c" Version="1.*" />
+</ItemGroup>
+```
+
+## 参考リンク
+
+- [M5Stack公式ドキュメント](https://docs.m5stack.com/)
+- [nanoFramework公式サイト](https://www.nanoframework.net/)
+- [ESP32ピン配置](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)
+
+## ライセンス
+
+このサンプルコードはMITライセンスの下で公開されています。
