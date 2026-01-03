@@ -1,72 +1,32 @@
 using System;
 using System.Device.Gpio;
 using System.Threading;
-using nanoFramework.Hardware.Esp32;
 
-namespace GPIO_Output
+Console.WriteLine("M5Stack Fire - GPIO Output Example");
+Console.WriteLine("===================================");
+
+// M5Stack Fire Port A pins: GPIO21 (SDA), GPIO22 (SCL)
+// Using GPIO21 as output example
+const int OUTPUT_PIN = 21;
+
+using var gpio = new GpioController();
+
+gpio.OpenPin(OUTPUT_PIN, PinMode.Output);
+Console.WriteLine($"GPIO{OUTPUT_PIN} configured as OUTPUT");
+Console.WriteLine("Starting blink pattern...");
+Console.WriteLine();
+
+var state = PinValue.Low;
+var counter = 0;
+
+while (true)
 {
-    public class Program
-    {
-        public static void Main()
-        {
-            Console.WriteLine("GPIO Output Sample - PORT A");
-
-            // PORT A GPIO設定
-            // GPIO21とGPIO22をGPIO出力として使用
-            int gpio21 = 21;
-            int gpio22 = 22;
-
-            // GPIO機能として設定
-            Configuration.SetPinFunction(gpio21, DeviceFunction.GPIO);
-            Configuration.SetPinFunction(gpio22, DeviceFunction.GPIO);
-
-            GpioController gpioController = new GpioController();
-
-            try
-            {
-                // GPIOピンをオープン
-                gpioController.OpenPin(gpio21, PinMode.Output);
-                gpioController.OpenPin(gpio22, PinMode.Output);
-
-                Console.WriteLine($"GPIO {gpio21} and {gpio22} configured as output");
-                Console.WriteLine("Starting LED blink pattern...");
-
-                bool state21 = false;
-                bool state22 = false;
-
-                while (true)
-                {
-                    // GPIO21をトグル
-                    state21 = !state21;
-                    gpioController.Write(gpio21, state21 ? PinValue.High : PinValue.Low);
-                    Console.WriteLine($"GPIO21: {(state21 ? "HIGH" : "LOW")}");
-
-                    Thread.Sleep(500);
-
-                    // GPIO22をトグル
-                    state22 = !state22;
-                    gpioController.Write(gpio22, state22 ? PinValue.High : PinValue.Low);
-                    Console.WriteLine($"GPIO22: {(state22 ? "HIGH" : "LOW")}");
-
-                    Thread.Sleep(500);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-            finally
-            {
-                // クリーンアップ
-                if (gpioController != null)
-                {
-                    gpioController.ClosePin(gpio21);
-                    gpioController.ClosePin(gpio22);
-                    gpioController.Dispose();
-                }
-            }
-
-            Thread.Sleep(Timeout.Infinite);
-        }
-    }
+    gpio.Write(OUTPUT_PIN, state);
+    
+    Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] GPIO{OUTPUT_PIN} = {state} (Count: {counter})");
+    
+    state = state == PinValue.Low ? PinValue.High : PinValue.Low;
+    counter++;
+    
+    Thread.Sleep(500);
 }

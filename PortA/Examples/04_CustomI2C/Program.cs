@@ -1,81 +1,59 @@
 using System;
 using System.Device.I2c;
 using System.Threading;
-using nanoFramework.Hardware.Esp32;
 
-namespace CustomI2C
+Console.WriteLine("M5Stack Fire - Custom I2C Example");
+Console.WriteLine("==================================");
+
+// M5Stack Fire I2C configuration (Port A: GPIO21=SDA, GPIO22=SCL)
+const int I2C_BUS = 1;
+const byte DEVICE_ADDRESS = 0x68; // Example: MPU6050 or RTC address
+
+var i2cSettings = new I2cConnectionSettings(I2C_BUS, DEVICE_ADDRESS)
 {
-    public class Program
+    BusSpeed = I2cBusSpeed.FastMode
+};
+
+using var i2cDevice = I2cDevice.Create(i2cSettings);
+
+Console.WriteLine($"I2C Device initialized:");
+Console.WriteLine($"  Bus: {I2C_BUS}");
+Console.WriteLine($"  Address: 0x{DEVICE_ADDRESS:X2}");
+Console.WriteLine($"  Speed: {i2cSettings.BusSpeed}");
+Console.WriteLine();
+
+var readBuffer = new byte[6];
+var writeBuffer = new byte[] { 0x3B }; // Example register address
+
+while (true)
+{
+    try
     {
-        public static void Main()
+        // Write register address
+        i2cDevice.Write(writeBuffer);
+        
+        // Read data
+        i2cDevice.Read(readBuffer);
+        
+        Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Data read:");
+        for (int i = 0; i < readBuffer.Length; i++)
         {
-            Console.WriteLine("Custom I2C Communication Sample - PORT A");
-
-            // PORT A I2C設定 (GPIO21=SDA, GPIO22=SCL)
-            Configuration.SetPinFunction(21, DeviceFunction.I2C1_DATA);
-            Configuration.SetPinFunction(22, DeviceFunction.I2C1_CLOCK);
-
-            // I2C設定 (デバイスアドレスは適宜変更)
-            int deviceAddress = 0x50; // 例: EEPROMのアドレス
-            I2cConnectionSettings i2cSettings = new I2cConnectionSettings(1, deviceAddress);
-            I2cDevice i2cDevice = I2cDevice.Create(i2cSettings);
-
-            try
-            {
-                Console.WriteLine($"I2C Device connected at address: 0x{deviceAddress:X2}");
-
-                // 書き込みデータ準備
-                byte[] writeBuffer = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04 };
-                byte[] readBuffer = new byte[4];
-
-                while (true)
-                {                    
-                    try
-                    {
-                        // データ書き込み
-                        Console.WriteLine("Writing data...");
-                        i2cDevice.Write(writeBuffer);
-                        Console.WriteLine($"Written {writeBuffer.Length} bytes");
-
-                        Thread.Sleep(100);
-
-                        // データ読み取り
-                        Console.WriteLine("Reading data...");
-                        i2cDevice.Read(readBuffer);
-                        
-                        Console.Write("Read data: ");
-                        foreach (byte b in readBuffer)
-                        {
-                            Console.Write($"0x{b:X2} ");
-                        }
-                        Console.WriteLine();
-
-                        // WriteRead の例
-                        byte[] command = new byte[] { 0x00 }; // レジスタアドレス
-                        byte[] response = new byte[2];
-                        
-                        i2cDevice.WriteRead(command, response);
-                        Console.WriteLine($"WriteRead response: 0x{response[0]:X2} 0x{response[1]:X2}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"I2C Error: {ex.Message}");
-                    }
-
-                    Console.WriteLine("---");
-                    Thread.Sleep(2000);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-            finally
-            {
-                i2cDevice?.Dispose();
-            }
-
-            Thread.Sleep(Timeout.Infinite);
+            Console.Write($"0x{readBuffer[i]:X2} ");
         }
+        Console.WriteLine();
+        
+        // Convert to 16-bit values (example)
+        var value1 = (short)((readBuffer[0] << 8) | readBuffer[1]);
+        var value2 = (short)((readBuffer[2] << 8) | readBuffer[3]);
+        var value3 = (short)((readBuffer[4] << 8) | readBuffer[5]);
+        
+        Console.WriteLine($"Converted values: {value1}, {value2}, {value3}");
+        Console.WriteLine();
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    
+    Thread.Sleep(1000);
 }
